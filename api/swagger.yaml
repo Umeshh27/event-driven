@@ -1,0 +1,69 @@
+openapi: 3.0.0
+info:
+  title: Notification Service API
+  description: API for sending asynchronous notifications via RabbitMQ.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+paths:
+  /api/notifications/send:
+    post:
+      summary: Send a notification
+      description: Publishes a notification event to the message queue for asynchronous processing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - message
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+                message:
+                  type: string
+                  minLength: 1
+                  example: "Your order #12345 has shipped!"
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "Notification event queued successfully"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid input"
+                  details:
+                    type: string
+                    example: '"userId" must be a valid UUID'
+        "500":
+          description: Internal Server Error
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        "200":
+          description: Metrics data

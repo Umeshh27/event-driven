@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: "rabbitmq:3-management-alpine"
+    container_name: ed_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: ed_api
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      API_PORT: 3000
+      NOTIFICATION_EXCHANGE: notification_exchange
+      NOTIFICATION_ROUTING_KEY: notification.send
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: ed_worker
+    environment:
+      NODE_ENV: development
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      RETRY_ATTEMPTS: 3
+      INITIAL_RETRY_DELAY_MS: 1000
+      NOTIFICATION_EXCHANGE: notification_exchange
+      NOTIFICATION_QUEUE: notification_queue
+      NOTIFICATION_ROUTING_KEY: notification.send
+      DLX_NAME: notification_dlx
+      DLQ_NAME: notification_dlq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep 'node src/worker.js' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

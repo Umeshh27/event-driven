@@ -47,36 +47,26 @@ class RabbitMQService {
   async setupTopology() {
       const { exchange, queue, routingKey, dlx, dlq } = config.rabbitmq;
 
-      // 1. Assert Exchanges
       await this.channel.assertExchange(exchange, 'direct', { durable: true });
       await this.channel.assertExchange(dlx, 'direct', { durable: true });
 
-      // 2. Assert DLQ and Bind
       await this.channel.assertQueue(dlq, { durable: true });
-      await this.channel.bindQueue(dlq, dlx, routingKey); // Bind DLQ to DLX with same routing key? Or catch all?
-      // Prompt says: "notification_dlq should then consume from notification_dlx"
-      // Usually DLX routes with the original routing key.
-      // So if original is 'notification.send', DLX will route 'notification.send' to DLQ if bound.
+      await this.channel.bindQueue(dlq, dlx, routingKey);
       
-      // 3. Assert Main Queue with Dead Letter Config
       await this.channel.assertQueue(queue, {
           durable: true,
           arguments: {
               'x-dead-letter-exchange': dlx,
-              // 'x-dead-letter-routing-key': routingKey // Optional: if we want to change it. Default uses original.
           }
       });
       
-      // 4. Bind Main Queue
       await this.channel.bindQueue(queue, exchange, routingKey);
 
-      // 5. Start Consuming Main Queue
-      // prefetch(1) is good for fair dispatch especially with simulated delays
       this.channel.prefetch(1);
       
       this.channel.consume(queue, (msg) => {
           processNotification(msg, this.channel);
-      }, { noAck: false }); // Manual ack in processor
+      }, { noAck: false });
 
       console.log(`[RabbitMQ Worker] Consuming from ${queue}`);
   }

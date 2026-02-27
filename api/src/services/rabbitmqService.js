@@ -17,7 +17,6 @@ class RabbitMQService {
             this.connection = await amqp.connect(url);
             this.channel = await this.connection.createChannel();
             
-            // Assert Exchange
             await this.channel.assertExchange(config.rabbitmq.exchange, 'direct', { durable: true });
             
             console.log('[RabbitMQ] Connected and Exchange asserted.');
@@ -56,7 +55,7 @@ class RabbitMQService {
     try {
         console.log(`[RabbitMQ] Publishing to exchange: ${exchange}, key: ${routingKey}`);
         const result = this.channel.publish(exchange, routingKey, Buffer.from(msg), {
-            persistent: true // Make message durable
+            persistent: true
         });
         
         if (result) {
